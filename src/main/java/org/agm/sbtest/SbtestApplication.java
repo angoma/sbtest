@@ -10,8 +10,8 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @EnableJpaRepositories("org.agm.sbtest.repositories")
 public class SbtestApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(SbtestApplication.class, args);
-	}
+    public static void main(String[] args) {
+        SpringApplication.run(SbtestApplication.class, args);
+    }
 
 }

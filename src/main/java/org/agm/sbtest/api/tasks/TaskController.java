@@ -1,8 +1,10 @@
 package org.agm.sbtest.api.tasks;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import org.agm.sbtest.entities.Task;
+import org.agm.sbtest.exceptions.EntityNotFoundException;
 import org.agm.sbtest.repositories.TaskRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -20,74 +22,67 @@ import lombok.extern.slf4j.Slf4j;
 @RequestMapping("/tasks")
 public class TaskController {
 
-	@Autowired
-	private TaskRepository repository;
+    @Autowired
+    private TaskRepository repository;
 
-	@RequestMapping(method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
-	public ResponseEntity<Iterable<Task>> findAll() {
-		return ResponseEntity.ok(repository.findAll());
-	}
+    @RequestMapping(method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Iterable<Task>> findAll() {
+        return ResponseEntity.ok(repository.findAll());
+    }
 
-	@RequestMapping(method = RequestMethod.GET, path = "/{taskId}", produces = MediaType.APPLICATION_JSON_VALUE)
-	public ResponseEntity<Task> findOne(@PathVariable Long taskId) {
+    @RequestMapping(method = RequestMethod.GET, path = "/{taskId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Task> findOne(@PathVariable Long taskId) {
+        return ResponseEntity.ok(findTask(taskId));
+    }
 
-		Optional<Task> taskOp = repository.findById(taskId);
-		ResponseEntity<Task> response = taskOp.map(task -> ResponseEntity.ok(task))
-				.orElseGet(() -> ResponseEntity.notFound().build());
+    @RequestMapping(method = RequestMethod.POST, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Task> create(@RequestBody TaskRequest request) {
+        log.info("Create task received: {}", request);
+        Task task = repository.save(request.createTask());
 
-		return response;
-	}
+        log.info("Task created: {}", task);
+        return ResponseEntity.ok(task);
+    }
 
-	@RequestMapping(method = RequestMethod.POST, produces = MediaType.APPLICATION_JSON_VALUE)
-	public ResponseEntity<Task> create(@RequestBody TaskRequest request) {
-		log.info("Create task received: {}", request);
-		Task task = repository.save(request.createTask());
+    @RequestMapping(method = RequestMethod.PUT, path = "/{taskId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Task> update(@PathVariable Long taskId, @RequestBody TaskRequest request) {
+        log.info("Update task received: {}, {}", taskId, request);
 
-		log.info("Task created: {}", task);
-		return ResponseEntity.ok(task);
-	}
+        Task task = findTask(taskId);
+        task = request.updateTask(task);
+        task = repository.save(task);
+        log.info("Task updated: {}", task);
 
-	@RequestMapping(method = RequestMethod.PUT, path = "/{taskId}", produces = MediaType.APPLICATION_JSON_VALUE)
-	public ResponseEntity<Task> update(@PathVariable Long taskId, @RequestBody TaskRequest request) {
-		log.info("Update task received: {}, {}", taskId, request);
+        return ResponseEntity.ok(task);
+    }
 
-		Optional<Task> taskOp = repository.findById(taskId);
-		ResponseEntity<Task> response = taskOp.map(task -> {
-			task = request.updateTask(task);
-			task = repository.save(task);
-			log.info("Task updated: {}", task);
-			return ResponseEntity.ok(task);
-		}).orElseGet(() -> ResponseEntity.notFound().build());
+    @RequestMapping(method = RequestMethod.DELETE, path = "/{taskId}")
+    public ResponseEntity<?> deleteOne(@PathVariable Long taskId) {
+        log.info("Delete task received: {}", taskId);
 
-		return response;
-	}
+        Task task = findTask(taskId);
+        repository.delete(task);
+        log.info("Task deleted: {}", task);
 
-	@RequestMapping(method = RequestMethod.DELETE, path = "/{taskId}")
-	public ResponseEntity<?> deleteOne(@PathVariable Long taskId) {
-		log.info("Delete task received: {}", taskId);
+        return ResponseEntity.noContent().build();
+    }
 
-		Optional<Task> taskOp = repository.findById(taskId);
-		ResponseEntity<?> response = taskOp.map(task -> {
-			repository.delete(task);
-			log.info("Task deleted: {}", task);
-			return ResponseEntity.noContent().build();
-		}).orElseGet(() -> ResponseEntity.notFound().build());
+    @RequestMapping(method = RequestMethod.POST, path = "/{taskId}/finish", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Task> finish(@PathVariable Long taskId) {
+        log.info("Finish task received: {}", taskId);
 
-		return response;
-	}
+        Task task = findTask(taskId);
+        task.setFinished(true);
+        task.setFinishedDate(LocalDateTime.now());
+        task = repository.save(task);
+        log.info("Task finished: {}", task);
 
-	@RequestMapping(method = RequestMethod.POST, path = "/{taskId}/finish", produces = MediaType.APPLICATION_JSON_VALUE)
-	public ResponseEntity<Task> finish(@PathVariable Long taskId) {
-		log.info("Finish task received: {}", taskId);
+        return ResponseEntity.ok(task);
+    }
 
-		Optional<Task> taskOp = repository.findById(taskId);
-		ResponseEntity<Task> response = taskOp.map(task -> {
-			task.setFinished(true);
-			task = repository.save(task);
-			log.info("Task finished: {}", task);
-			return ResponseEntity.ok(task);
-		}).orElseGet(() -> ResponseEntity.notFound().build());
+    private Task findTask(Long taskId) {
+        Optional<Task> taskOp = repository.findById(taskId);
 
-		return response;
-	}
+        return taskOp.orElseThrow(() -> new EntityNotFoundException("task", taskId));
+    }
 }
